@@ -22,6 +22,7 @@ type Post struct {
   User User `gorm:"foreignKey:UserID" json:"user"`
   //一条帖子对应多个评论
   Comments []Comment `gorm:"foreignKey:PostsID" json:"comments"`
+  CreatedAt time.Time `json:"created_at"`//创建时间
 }
 
 type Comment struct {
@@ -31,6 +32,8 @@ type Comment struct {
   ParentID *int64 `json:"parent_id"`//回复评论
   UserID int64 `json:"user_id"`//是谁发的这条评论
   User User `foreignKey:UserID" json:"user"`//评论的作者
+  Post Post `gorm:"foreignKey:PostsID" json:"post"`//这条评论属于哪篇帖子
+  CreatedAt time.Time `json:"created_at"`//创建时间
 }
 
 func main() {
@@ -173,6 +176,42 @@ func main() {
 		c.JSON(400, gin.H{"msg": "评论内容不能为空"})
 		return
 	}
+
+  //个人信息页面路由
+  r.GET("/api/profile",func(c *gin.Context){
+    userID := c.Query("user_id")
+    var user User //声明一个User变量，用来装数据库里查到的信息
+    if err := db.First(&user, userID).Error;err != nil {
+      c.JSON(400,gin.H{"msg":"用户不存在"})
+      return
+    }
+    var postCount,commentCount int64 //声明两个整数变量，一个数帖子，一个数回帖
+    db.Model(&Post{}).Where("user_id = ?",userID).Count(&postCount)//统计我发过几篇帖子
+    db.Model(&Comment{}).Where("user_id = ?",useID).Count(&commentCount)//统计我发过几条评论
+    c.JSON(200,gin.H{
+      "user": user,
+      "post_count": postCount,
+      "comment_count":commentCount,
+    })
+  })
+
+  //我的帖子页面路由
+  r.GET("api/my/posts",func(c *gin.Context) {
+    userID := c.Query("user_id")//拿到我是谁
+    var list []Post
+    //查帖子的同时，也把每篇帖子的作者和评论也查出来
+    db.Preload("User").Preload("Comments").Where("user_id = ?",userID).Find(&list)
+    c.JSON(200, gin.H{"result": list})//把内容传给前端
+  })
+
+  //我的回帖页面路由
+  r.GET("api/my/comments",func(c *gin.Context) {
+    userID := C.Query("user_id")
+    var list []Comment//声明Comments数组，用来装多条评论
+    db.Preload("Post").Where("user_id = ?", userID).Find(&list)//把每条评论对应的原贴也查出来，查出来的内容放到list中
+    c.JSON(200, gin.H{"result": list})
+  })
+
 
   //创建Comment结构体变量newComment,用来组件准备插入数据库的数据
   newComment := Comment{
