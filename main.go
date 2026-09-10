@@ -3,6 +3,7 @@ import (
   "github.com/gin-gonic/gin"
   "strconv"
   "gorm.io/gorm"
+  "time"
   "gorm.io/driver/postgres"
   "fmt"
 )
@@ -187,7 +188,7 @@ func main() {
     }
     var postCount,commentCount int64 //声明两个整数变量，一个数帖子，一个数回帖
     db.Model(&Post{}).Where("user_id = ?",userID).Count(&postCount)//统计我发过几篇帖子
-    db.Model(&Comment{}).Where("user_id = ?",useID).Count(&commentCount)//统计我发过几条评论
+    db.Model(&Comment{}).Where("user_id = ?",userID).Count(&commentCount)//统计我发过几条评论
     c.JSON(200,gin.H{
       "user": user,
       "post_count": postCount,
@@ -206,7 +207,7 @@ func main() {
 
   //我的回帖页面路由
   r.GET("api/my/comments",func(c *gin.Context) {
-    userID := C.Query("user_id")
+    userID := c.Query("user_id")
     var list []Comment//声明Comments数组，用来装多条评论
     db.Preload("Post").Where("user_id = ?", userID).Find(&list)//把每条评论对应的原贴也查出来，查出来的内容放到list中
     c.JSON(200, gin.H{"result": list})
