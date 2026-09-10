@@ -1,5 +1,5 @@
 ## 帖子项目
-项目简介：通过 Go + Gin + GORM + PostgreSQL 搭建后端接口、React 构建前端页面，实现用户注册登录、发帖、评论回复、帖子列表与个人中心等完整功能，适用于个人博客、学习论坛等场景。
+项目简介：通过 Go + Gin + GORM + PostgreSQL 搭建后端接口、React 构建前端页面，实现用户注册登录、发帖、评论回复、帖子列表与个人中心等功能。
 
 ## 技术栈
 - Go
@@ -22,11 +22,15 @@
 
 ## 安装步骤
 1. 克隆项目到本地：
+```
 git clone https://github.com/007638/posts_backend.git
+```
 
 ## 安装依赖并运行
+```
 cd posts_backend
 go mod tidy
 go run main.go
+```
 
 注意：运行前需要先启动PostgresSQL，并在main.go中配置好数据库连接
