@@ -22,18 +22,18 @@ type Post struct {
   UserID int64 `json:"user_id"`
   User User `gorm:"foreignKey:UserID" json:"user"`
   //一条帖子对应多个评论
-  Comments []Comment `gorm:"foreignKey:PostsID" json:"comments"`
+  Comments []Comment `gorm:"foreignKey:PostID" json:"comments"`
   CreatedAt time.Time `json:"created_at"`//创建时间
 }
 
 type Comment struct {
   ID int64 `gorm:"primaryKey;autoIncrement" json:"id"`
   Content string `json:"content"`//评论内容
-  PostsID int64 `json:"posts_id"`//属于哪条帖子
+  PostID int64 `json:"post_id"`//属于哪条帖子
   ParentID *int64 `json:"parent_id"`//回复评论
   UserID int64 `json:"user_id"`//是谁发的这条评论
-  User User `foreignKey:UserID" json:"user"`//评论的作者
-  Post Post `gorm:"foreignKey:PostsID" json:"post"`//这条评论属于哪篇帖子
+  User User `gorm:"foreignKey:UserID" json:"user"`//评论的作者
+  Post Post `gorm:"foreignKey:PostID" json:"post"`//这条评论属于哪篇帖子
   CreatedAt time.Time `json:"created_at"`//创建时间
 }
 
@@ -159,7 +159,7 @@ func main() {
   })
 
   //添加回复评论接口
-  r.POST("api/comment",func(c *gin.Context){
+  r.POST("/api/comment",func(c *gin.Context){
     //定义commentReq自定义结构体，用来接收前端传过来的数据
     type commentReq struct {
     PostsID int64 `json:"post_id"` //接收前端传的posts_id,代表这条评论属于哪一篇帖子
@@ -177,10 +177,32 @@ func main() {
 		c.JSON(400, gin.H{"msg": "评论内容不能为空"})
 		return
 	}
+  //创建Comment结构体变量newComment,用来组件准备插入数据库的数据
+  newComment := Comment {
+    PostsID:  req.PostsID,
+    ParentID: req.ParentID,
+    Content:  req.Content,
+    UserID:   req.UserID,
+  }
+  err = db.Create(&newComment).Error //把数据插入数据库里，数据库报错信息将赋值给err
+  if err != nil{
+    c.JSON(500,gin.H{"msg":"评论保存失败"})
+    return
+  }
+  c.JSON(200,gin.H{
+     "msg":"评论成功",
+     "data":newComment,//把存入数据库的完整评论数据返回给前端
+  })
+  })
 
   //个人信息页面路由
   r.GET("/api/profile",func(c *gin.Context){
-    userID := c.Query("user_id")
+    userIDStr := c.Query("user_id")//拿到字符串id
+    userID,err := strconv.ParseInt(userIDStr,10,64)//把字符串转成int64
+    if err != nil {
+      c.JSON(400,gin.H{"msg":"用户ID格式错误"})
+      return
+    }
     var user User //声明一个User变量，用来装数据库里查到的信息
     if err := db.First(&user, userID).Error;err != nil {
       c.JSON(400,gin.H{"msg":"用户不存在"})
@@ -197,8 +219,14 @@ func main() {
   })
 
   //我的帖子页面路由
-  r.GET("api/my/posts",func(c *gin.Context) {
-    userID := c.Query("user_id")//拿到我是谁
+  r.GET("/api/my/posts",func(c *gin.Context) {
+    userIDStr := c.Query("user_id")//拿到我是谁
+    //字符串转int64
+    userID,err := strconv.ParseInt(userIDStr,10,64)
+    if err != nil {
+      c.JSON(400,gin.H{"msg":"用户id格式错误"})
+      return
+    }
     var list []Post
     //查帖子的同时，也把每篇帖子的作者和评论也查出来
     db.Preload("User").Preload("Comments").Where("user_id = ?",userID).Find(&list)
@@ -206,7 +234,7 @@ func main() {
   })
 
   //我的回帖页面路由
-  r.GET("api/my/comments",func(c *gin.Context) {
+  r.GET("/api/my/comments",func(c *gin.Context) {
     userID := c.Query("user_id")
     var list []Comment//声明Comments数组，用来装多条评论
     db.Preload("Post").Where("user_id = ?", userID).Find(&list)//把每条评论对应的原贴也查出来，查出来的内容放到list中
@@ -214,23 +242,6 @@ func main() {
   })
 
 
-  //创建Comment结构体变量newComment,用来组件准备插入数据库的数据
-  newComment := Comment{
-		PostsID:  req.PostsID,
-		ParentID: req.ParentID,
-		Content:  req.Content,
-		UserID:   req.UserID,
-	}
-  err = db.Create(&newComment).Error //把数据插入数据库里，数据库报错信息将赋值给err
-  if err != nil{
-    c.JSON(500,gin.H{"msg":"评论保存失败"})
-    return
-  }
-  c.JSON(200,gin.H{
-    "msg":"评论成功",
-    "data":newComment,//把存入数据库的完整评论数据返回给前端
-  })
-})
 
   r.Run("0.0.0.0:8099")
 }
