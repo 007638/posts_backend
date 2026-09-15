@@ -21,6 +21,8 @@ type Post struct {
   Content string `json:"content"`
   UserID int64 `json:"user_id"`
   User User `gorm:"foreignKey:UserID" json:"user"`
+  TagID int64 `json:"tag_id"`
+  Tag Tag `gorm:"foreignKey:TagID" json:"tag"`
   //一条帖子对应多个评论
   Comments []Comment `gorm:"foreignKey:PostID" json:"comments"`
   CreatedAt time.Time `json:"created_at"`//创建时间
@@ -35,6 +37,13 @@ type Comment struct {
   User User `gorm:"foreignKey:UserID" json:"user"`//评论的作者
   Post Post `gorm:"foreignKey:PostID" json:"post"`//这条评论属于哪篇帖子
   CreatedAt time.Time `json:"created_at"`//创建时间
+}
+
+type Tag struct {
+  ID int64 `gorm:"primaryKey;autoIncrement" json:"id"`
+  Name string `json:"name"`
+  //一个tag标签对应多个帖子
+  Posts []Post `gorm:"foreignKey:TagID" json:"posts`
 }
 
 func main() {
@@ -60,7 +69,7 @@ func main() {
   }
   fmt.Println("ok")
   //自动建表：不存在的表就自动创建，已存的就不动
-  db.AutoMigrate(&User{},&Post{},&Comment{})
+  db.AutoMigrate(&User{},&Post{},&Comment{},&Tag{})
 
   //注册接口
   r.POST("/api/register",func(c *gin.Context) {
@@ -179,7 +188,7 @@ func main() {
 	}
   //创建Comment结构体变量newComment,用来组件准备插入数据库的数据
   newComment := Comment {
-    PostsID:  req.PostsID,
+    PostID:  req.PostsID,
     ParentID: req.ParentID,
     Content:  req.Content,
     UserID:   req.UserID,
@@ -241,6 +250,17 @@ func main() {
     c.JSON(200, gin.H{"result": list})
   })
 
+  //我的欢迎页面路由
+  r.GET("/home", func(c *gin.Context) {
+    var tagList []Tag//定义一个Tag数组，变量名为tmgList，用来存放所有标签
+    db.Find(&tagList)//查询数据库里的tag标签
+    for i := range tagList {
+      var tmpPosts []Post //临时帖子数组，用来存放当前标签的帖子
+      db.Preload("User").Where("tag_id = ?", tagList[i].ID).Find(&tmpPosts)
+      tagList[i].Posts = tmpPosts //把查到的帖子，绑定到当前标签的Posts里面
+    }
+    c.JSON(200,gin.H{"tags": tagList})
+  })
 
 
   r.Run("0.0.0.0:8099")
