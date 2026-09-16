@@ -118,12 +118,20 @@ func main() {
   //定义一个GET请求的接口，用于返回帖子列表数据
   r.GET("/api/posts",func(c *gin.Context) {
     var list []Post
-    err := db.Find(&list).Error
+   //新增一个查询参数叫tagId,用来查网址上的tagId
+    tagId := c.Query("tagId")
+    //先声明dbQuery
+    dbQuery := db
+    //如果传了tagId就加上筛选条件
+    if tagId != "" {
+      dbQuery = db.Where("tag_id = ?", tagId)
+    }
+    err := dbQuery.Find(&list).Error
     if err != nil {
-      c.JSON(500,gin.H{"msg":"查询数据库出错"})
+      c.JSON(500, gin.H{"msg":"查询数据库出错"})
       return
     }
-    c.JSON(200,gin.H{"result":list})
+    c.JSON(200, gin.H{"result":list})
   })
 
   //新增帖子接口
