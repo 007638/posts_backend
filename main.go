@@ -120,6 +120,7 @@ func main() {
     var list []Post
    //新增一个查询参数叫tagId,用来查网址上的tagId
     tagId := c.Query("tagId")
+    fmt.Println("后端收到的tagId:",tagId)
     //先声明dbQuery
     dbQuery := db
     //如果传了tagId就加上筛选条件
@@ -269,6 +270,45 @@ func main() {
     }
     c.JSON(200,gin.H{"tags": tagList})
   })
+
+  //标签路由
+  r.GET("/api/tags", func(c *gin.Context) {
+    var tagList []Tag
+    err := db.Find(&tagList).Error
+    if err != nil {
+      c.JSON(500, gin.H{"msg":"查询标签失败"})
+      return
+    }
+    c.JSON(200, gin.H{"result":tagList})
+  })
+
+  //新增标签路由
+  r.POST("/api/create-tag",func(c *gin.Context) {
+    var tag Tag
+    err := c.ShouldBindJSON(&tag)
+    if err != nil {
+      c.JSON(400,gin.H{"msg":"参数错误"})
+      return
+    }
+
+    //查询数据库，看标签是否已经存在
+    var exisTag Tag
+    findErr := db.Where("name = ?",tag.Name).Find(&exisTag).Error
+    if findErr == nil {
+      //找到同名标签，直接返回已经存在的tag
+      c.JSON(200,gin.H{"msg":"标签已存在","data":exisTag})
+      return
+    }
+
+    //没有找到同名标签，就新建
+    res := db.Create(&tag)
+    if res.Error != nil {
+      c.JSON(500,gin.H{"msg":"创建标签失败"})
+      return
+    }
+    c.JSON(200, gin.H{"msg":"标签创建成功", "data": tag})
+  })
+
 
 
   r.Run("0.0.0.0:8099")
